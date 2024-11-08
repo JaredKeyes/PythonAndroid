@@ -1,12 +1,15 @@
-from Left import *
-from Right import *
-
 def fork():
-	choice1 = input("You come across a fork in the road. Do you go left or right?\n").lower()
+	print("\nAfter following the road for a while, you come to a fork in the road.\n")
+	choice = input("Do you want to go LEFT or RIGHT or head BACK to camp?\n").lower()
 
-	if choice1 == "left":
-		left()
-	elif choice1 == "right":
-		right()
+	if choice == "left":
+		import Left
+		Left.left()
+	elif choice == "right":
+		import Right
+		Right.right()
+	elif choice == "back":
+		import MainCamp as mc
+		mc.main_camp()
 	else:
 		print("That is not a valid choice.")
