@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Text Adventure</title>
+    <!-- Link external stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container"> <!-- Added container div -->
+    <h1>Text Adventure</h1>
+
+    <div id="game-output">
+        {{ game_state.message }}
+    </div>
+
+    <div id="player-options">
+        {% for option in game_state.options %}
+            {# Render input field directly in HTML if needed for initial load #}
+            {% if option.input_required == 'text' and option.action == 'submit_name' %}
+                <label for="player_input_field">Name: </label>
+                <input type="text" id="player_input_field" placeholder="Enter your name here">
+                <br>
+            {% endif %}
+             {# Render the button for the action #}
+            <button data-action="{{ option.action }}" {% if option.direction %}data-direction="{{ option.direction }}"{% endif %}>{{ option.text }}</button>
+        {% endfor %}
+    </div>
+
+    <div id="player-stats">
+        {% if game_state.player_stats %}
+            <strong>{{ game_state.player_stats.name }} - Level {{ game_state.player_stats.level }}</strong><br>
+            XP: {{ game_state.player_stats.xp }} / {{ game_state.player_stats.xp_to_next_level }}<br>
+            Health: {{ game_state.player_stats.health }} / {{ game_state.player_stats.max_health }}
+            <span id="allocate-health-button-container"></span> <!-- Container for health allocation button -->
+            <br>
+            Attack: {{ game_state.player_stats.attack }}
+            <span id="allocate-attack-button-container"></span> <!-- Container for attack allocation button -->
+            <br>
+            Defense: {{ game_state.player_stats.defense }}
+            <span id="allocate-defense-button-container"></span> <!-- Container for defense allocation button -->
+            <br>
+            {% if game_state.player_stats.stat_points > 0 %}
+                <span id="stat-points-info">Stat Points Available: {{ game_state.player_stats.stat_points }}</span>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Equipment and Inventory Section -->
+    <div id="equipment-inventory">
+        <div id="equipped-items">
+            <!-- Populated by JS -->
+        </div>
+        <div id="inventory-items">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <div id="combat-info" class="{% if not game_state.combat_state %}hidden{% endif %}">
+        {% if game_state.combat_state %}
+            <!-- Display combat details here -->
+            <p><strong>Combat Active!</strong></p>
+            <p>Enemy: {{ game_state.combat_state.enemy_name }} (Health: {{ game_state.combat_state.enemy_health }})</p>
+        {% endif %}
+    </div>
+
+    <script>
+        const gameOutput = document.getElementById('game-output');
+        const playerOptions = document.getElementById('player-options');
+        const playerStats = document.getElementById('player-stats');
+        const combatInfo = document.getElementById('combat-info');
+        const equippedItemsDiv = document.getElementById('equipped-items');
+        const inventoryItemsDiv = document.getElementById('inventory-items');
+
+        // --- Item Data (Passed from Flask or fetched separately) ---
+        // Ideally, Flask passes this via render_template or an API endpoint
+        // For now, hardcoding it here based on items.py for JS access
+        const ITEM_DATA = {
+            'fists': { 'name': 'Fists', 'attack_bonus': 0 },
+            'rusty_sword': { 'name': 'Rusty Sword', 'attack_bonus': 2 }
+            // Add other items here if needed by UI
+        };
+
+        function getItemName(itemId) {
+            return ITEM_DATA[itemId]?.name || itemId; // Fallback to ID if name not found
+        }
+
+        // Function to update the UI with new game state
+        function updateUI(state) {
+            gameOutput.textContent = state.message;
+
+            // Update options
+            playerOptions.innerHTML = ''; // Clear old options
+            let inputField = null; // To store reference to any created input field
+
+            if (state.options) {
+                state.options.forEach(option => {
+                    // Check if this option requires text input (specifically for name in this case)
+                    if (option.input_required === 'text' && option.action === 'submit_name') {
+                        // Add a label
+                        const label = document.createElement('label');
+                        label.htmlFor = 'player_input_field';
+                        label.textContent = 'Name: ';
+                        playerOptions.appendChild(label);
+
+                        // Create the input field
+                        inputField = document.createElement('input');
+                        inputField.type = 'text';
+                        inputField.placeholder = 'Enter your name here'; // More specific placeholder
+                        inputField.id = 'player_input_field'; // Assign an ID for easy access
+                        playerOptions.appendChild(inputField);
+
+                        // Add a line break or space for better layout
+                        playerOptions.appendChild(document.createElement('br'));
+                    }
+                    // Create the button for the action
+                    const button = document.createElement('button');
+                    button.dataset.action = option.action;
+                    // Add direction data if present (for 'go' actions)
+                    if (option.direction) {
+                        button.dataset.direction = option.direction;
+                    }
+                    // Add item_id data if present (for item actions like 'take_item')
+                    if (option.item_id) {
+                        button.dataset.itemId = option.item_id;
+                    }
+                    button.textContent = option.text;
+                    playerOptions.appendChild(button);
+                });
+            }
+
+            // Update player stats display
+            if (state.player_stats) {
+                // Clear previous allocation buttons/info first
+                playerStats.innerHTML = '';
+
+                // Basic Info
+                const statsHeader = document.createElement('strong');
+                statsHeader.textContent = `${state.player_stats.name} - Level ${state.player_stats.level}`;
+                playerStats.appendChild(statsHeader);
+                playerStats.appendChild(document.createElement('br'));
+
+                // XP Info
+                const xpInfo = document.createTextNode(`XP: ${state.player_stats.xp} / ${state.player_stats.xp_to_next_level}`);
+                playerStats.appendChild(xpInfo);
+                playerStats.appendChild(document.createElement('br'));
+
+                // Function to create allocation button if points available
+                const createAllocateButton = (statName, containerId) => {
+                    if (state.player_stats.stat_points > 0) {
+                        const button = document.createElement('button');
+                        button.dataset.action = `allocate_${statName}`;
+                        button.textContent = '[+]';
+                        button.style.marginLeft = '5px'; // Add some spacing
+                        button.style.padding = '2px 5px'; // Make button smaller
+                        button.style.fontSize = '0.8em';
+                        const container = document.getElementById(containerId);
+                        if (container) {
+                            container.innerHTML = ''; // Clear previous button if any
+                            container.appendChild(button);
+                        }
+                    } else {
+                         const container = document.getElementById(containerId);
+                         if (container) container.innerHTML = ''; // Clear button if no points
+                    }
+                };
+
+                // Health
+                const healthInfo = document.createTextNode(`Health: ${state.player_stats.health} / ${state.player_stats.max_health} `);
+                playerStats.appendChild(healthInfo);
+                const healthButtonContainer = document.createElement('span');
+                healthButtonContainer.id = 'allocate-health-button-container';
+                playerStats.appendChild(healthButtonContainer);
+                createAllocateButton('health', 'allocate-health-button-container');
+                playerStats.appendChild(document.createElement('br'));
+
+                // Attack
+                const attackInfo = document.createTextNode(`Attack: ${state.player_stats.attack} `);
+                playerStats.appendChild(attackInfo);
+                const attackButtonContainer = document.createElement('span');
+                attackButtonContainer.id = 'allocate-attack-button-container';
+                playerStats.appendChild(attackButtonContainer);
+                createAllocateButton('attack', 'allocate-attack-button-container');
+                playerStats.appendChild(document.createElement('br'));
+
+                // Defense
+                const defenseInfo = document.createTextNode(`Defense: ${state.player_stats.defense} `);
+                playerStats.appendChild(defenseInfo);
+                const defenseButtonContainer = document.createElement('span');
+                defenseButtonContainer.id = 'allocate-defense-button-container';
+                playerStats.appendChild(defenseButtonContainer);
+                createAllocateButton('defense', 'allocate-defense-button-container');
+                playerStats.appendChild(document.createElement('br'));
+
+                // Stat Points Info
+                if (state.player_stats.stat_points > 0) {
+                    const pointsInfo = document.createElement('span');
+                    pointsInfo.id = 'stat-points-info';
+                    pointsInfo.textContent = `Stat Points Available: ${state.player_stats.stat_points}`;
+                    playerStats.appendChild(pointsInfo);
+                }
+
+                playerStats.style.display = 'block'; // Ensure stats block is visible
+            } else {
+                playerStats.innerHTML = ''; // Clear stats if no player_stats
+                playerStats.style.display = 'none'; // Hide stats block
+            }
+
+            // --- Update Equipment/Inventory Display ---
+            equippedItemsDiv.innerHTML = ''; // Clear old equipped
+            inventoryItemsDiv.innerHTML = ''; // Clear old inventory
+
+            if (state.player_stats && state.player_stats.equipment) {
+                const equipment = state.player_stats.equipment;
+                const inventory = state.player_stats.inventory || [];
+
+                // Display Equipped Weapon
+                const equippedWeaponId = equipment.weapon || 'fists';
+                const equippedWeaponName = getItemName(equippedWeaponId);
+                let equippedHtml = `<strong>Equipped Weapon:</strong> ${equippedWeaponName}`;
+                if (equippedWeaponId !== 'fists') {
+                    equippedHtml += ` <button class="item-button" data-action="unequip_weapon" data-item-id="${equippedWeaponId}">[Unequip]</button>`;
+                }
+                equippedItemsDiv.innerHTML = equippedHtml;
+
+                // Display Inventory Weapons
+                let inventoryHtml = '<strong>Inventory:</strong> ';
+                const weaponsInInventory = inventory.filter(id => id in ITEM_DATA); // Assuming ITEM_DATA only has weapons for now
+
+                if (weaponsInInventory.length > 0) {
+                    weaponsInInventory.forEach(itemId => {
+                        inventoryHtml += `${getItemName(itemId)} <button class="item-button" data-action="equip_weapon" data-item-id="${itemId}">[Equip]</button> `;
+                    });
+                } else {
+                    inventoryHtml += 'Empty';
+                }
+                inventoryItemsDiv.innerHTML = inventoryHtml;
+
+            }
+            // --- End Equipment/Inventory Update ---
+
+
+            // Update combat info display
+            if (state.combat_state && state.combat_state.enemy) { // Check if enemy object exists
+                combatInfo.innerHTML = `
+                    <p><strong>Combat Active!</strong></p>
+                    <p>
+                        Enemy: ${state.combat_state.enemy.name} <br>
+                        Health: ${state.combat_state.enemy.health} | Attack: ${state.combat_state.enemy.attack} | Defense: ${state.combat_state.enemy.defense}
+                    </p>
+                `;
+                combatInfo.classList.remove('hidden');
+            } else {
+                combatInfo.classList.add('hidden');
+            }
+        }
+
+        // Event listener for the main container to handle clicks on options and allocation buttons
+        const container = document.querySelector('.container'); // Get the container element
+        container.addEventListener('click', async (event) => {
+            // Check if the clicked element is a button
+            if (event.target.tagName === 'BUTTON') {
+                const action = event.target.dataset.action;
+                // Check if action exists before proceeding (safety check)
+                if (!action) return;
+
+                const direction = event.target.dataset.direction;
+                const itemId = event.target.dataset.itemId; // Get item_id for item actions
+                let inputValue = null;
+
+                // Find if an input field exists within playerOptions
+                const inputField = playerOptions.querySelector('#player_input_field');
+                if (inputField) {
+                    inputValue = inputField.value;
+                }
+
+                // Construct payload
+                const payload = { action: action };
+                if (inputValue !== null) {
+                    payload.input = inputValue;
+                }
+                if (direction !== undefined) {
+                    payload.direction = direction;
+                }
+                if (itemId !== undefined) { // Add item_id to payload if present
+                    payload.item_id = itemId;
+                }
+
+                try {
+                    const response = await fetch('/action', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const newState = await response.json();
+                    updateUI(newState);
+                } catch (error) {
+                    console.error('Error sending action:', error);
+                    gameOutput.textContent = 'An error occurred. Please check the console.';
+                }
+            }
+        });
+
+        // Initial state is rendered by Flask/Jinja2 on page load.
+        // No initial fetch needed unless we want to refresh state without page reload later.
+
+    </script>
+</div> <!-- Close container div -->
+</body>
+</html>

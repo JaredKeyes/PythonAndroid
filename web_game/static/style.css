@@ -1,0 +1,110 @@
+/* General Body Styling */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Main Container */
+.container {
+    max-width: 800px;
+    margin: 20px auto;
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+}
+
+/* Game Output Area */
+#game-output {
+    margin-bottom: 25px;
+    border: 1px solid #ddd;
+    background-color: #fdfdfd;
+    padding: 20px;
+    min-height: 120px;
+    white-space: pre-wrap; /* Keep line breaks from messages */
+    border-radius: 5px;
+    font-size: 1.1em;
+}
+
+/* Player Options Area */
+#player-options {
+    margin-bottom: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+#player-options label {
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+#player-options input[type="text"] {
+    padding: 8px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-width: 200px; /* Give some space for typing */
+}
+
+#player-options button {
+    margin: 5px 5px 5px 0; /* Add spacing */
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+#player-options button:hover {
+    background-color: #2980b9;
+}
+
+/* Player Stats Area */
+#player-stats {
+    margin-top: 20px;
+    padding: 10px;
+    font-size: 0.95em;
+    color: #555;
+    background-color: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+}
+
+#player-stats strong {
+    color: #2c3e50;
+}
+
+/* Combat Info Area */
+#combat-info {
+    margin-top: 20px;
+    border: 1px dashed #e74c3c; /* Red dashed border */
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #fbeae5; /* Light reddish background */
+}
+
+#combat-info p {
+    margin: 5px 0;
+}
+
+#combat-info strong {
+    color: #c0392b; /* Darker red */
+}
+
+/* Utility Class */
+.hidden {
+    display: none;
+}
